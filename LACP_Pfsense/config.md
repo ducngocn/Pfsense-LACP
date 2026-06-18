@@ -1,32 +1,5 @@
 # Cấu hình LACP giữa 2 đầu CoreSw và pfSense
 
-sequenceDiagram
-    participant PC as Mạng LAN (PC)
-    participant SW as Core Switch
-    participant PF as pfSense Firewall
-
-    Note over PC,PF: GIAI ĐOẠN 1: BAN ĐẦU
-    PC->>SW: Gửi dữ liệu mạng
-    SW->>PF: Dữ liệu chạy qua dây CŨ (G0/0 -> e0)
-    
-    Note over SW,PF: GIAI ĐOẠN 2: XÂY NHÀ MỚI
-    SW->>SW: Tạo Port-Channel trên dây G0/3
-    PF->>PF: Tạo LAGG0 trên dây e3
-    
-    Note over PC,PF: GIAI ĐOẠN 3: CHUYỂN NHÀ (ZERO-DOWNTIME)
-    PF->>PF: Reassign VLAN từ e0 sang LAGG0
-    PF-->>SW: Gửi bản tin GARP báo đổi nhà qua dây e3
-    SW->>SW: Cập nhật lại Bảng MAC
-    
-    Note over PC,PF: GIAI ĐOẠN 4: CHẠY TRÊN ĐƯỜNG MỚI & HỢP THỂ
-    PC->>SW: Gửi dữ liệu mạng
-    SW->>PF: Dữ liệu tự động chạy qua dây MỚI (G0/3 -> e3)
-    PF->>PF: Giải phóng cổng e0 cũ
-    PF->>SW: Gộp nốt dây cũ (e0, G0/0) vào LACP
-    Note over SW,PF: 🌟 Hoàn tất: 2 dây chạy song song cân bằng tải
-
-
-
 ## Topology ban đầu
 
 <img src="images/image.png" width="700">
