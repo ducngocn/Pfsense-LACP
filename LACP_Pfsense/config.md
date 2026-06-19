@@ -18,29 +18,30 @@
 
 ## Nối thêm dây giữa CoreSw và pfSense để cấu hình LACP
 
-<img src="images/image-1.png" width="500">
+<img src="images/15.png" width="500">  
 
-### Trên G0/3 mới của CoreSw
+
+### Trên 2 dây mới G0/3 và G1/0 của CoreSw
 
 - Cấu hình trunk 
 
 ```
-Coresw(config-vlan)#int g0/3
-Coresw(config-if)#sw trunk encapsulation dot1q
-Coresw(config-if)#sw mode trunk
-Coresw(config-if)#sw trunk all vlan 10,20
+Coresw(config-vlan)#int range g0/3,g1/0
+Coresw(config-if-range)#sw trunk encapsulation dot1q
+Coresw(config-if-range)#sw mode trunk
+Coresw(config-if-range)#sw trunk all vlan 10,20
 ```
 
-- Cấu hình LACP duy nhất trên G0/3 trước
+- Cấu hình LACP trên 2 cổng mới của CoreSw
 
 ```
-Coresw(config)#int g0/3
-Coresw(config-if)#sw trunk encap dot1q
-Coresw(config-if)#sw mode trunk
-Coresw(config-if)#sw trunk all vlan 10,20
-Coresw(config-if)#exit
-Coresw(config)#int g0/3
-Coresw(config-if)#channel-gr 1 mode active
+Coresw(config)#int range g0/3,g1/0
+Coresw(config-if-range)#sw trunk encapsulation dot1q
+Coresw(config-if-range)#sw mode trunk
+Coresw(config-if-range)#sw trunk all vlan 10,20
+Coresw(config-if-range)#exit
+Coresw(config)#int range g0/3,g1/0
+Coresw(config-if-range)#channel-group 1 mode active
 Creating a port-channel interface Port-channel 1
 
 
@@ -53,7 +54,9 @@ Coresw(config-if)#sw trunk all vlan 10,20
 ### Trên pfSense 
 - Vào Interfaces -> LAGGs, bấm Add -> thêm e3 (e3 là cổng mới thêm vào trên pfsense và lấy riêng cổng mới đó cấu hình lagg)
 
-<img src="images/3.png" width="500">   
+<img src="images/3.png" width="500">    
+
+
 
 
 
