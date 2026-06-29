@@ -29,13 +29,13 @@ Mục tiêu: Thay thế hoàn toàn thiết bị pfSense cũ (đang dùng 1 port
    - Đăng nhập pfSense cũ, vào `Diagnostics > Backup & Restore`.
    - Tải file XML cấu hình hiện tại.
    
-   <img src="images/image.png" width="600">
+   <img src="images/backup.png" width="600">
 
 2. **Setup Firewall mới:**
    - Lắp đặt Firewall pfSense mới.
    - Restore file XML cấu hình vừa tải vào Firewall pfSense mới bằng cách: Vào `Diagnostics > Backup & Restore` > Chọn tệp XML > Bấm `Restore Configuration`. Sau đó đợi pfSense reboot.
    
-   <img src="images/image-1.png" width="600">
+   <img src="images/restore.png" width="600">
 
    - *Lưu ý:* Trong quá trình reboot, pfSense có thể sẽ yêu cầu nhập password mới để hoàn thành.
    
@@ -126,11 +126,8 @@ Mục tiêu: Thay thế hoàn toàn thiết bị pfSense cũ (đang dùng 1 port
 > [!WARNING]
 > Những rủi ro sau có thể làm gián đoạn chuyển đổi.
 
-- **Rủi ro 1: Lỗi Restore cấu hình dẫn đến mất kiểm soát con mới.** File cấu hình (XML) của phiên bản pfSense cũ không tương thích với phiên bản pfSense mới (nếu chênh lệch version quá lớn), hoặc gán sai port vật lý làm mất quyền truy cập Web GUI.
+- **Rủi ro 1: Lỗi Restore cấu hình dẫn đến mất kiểm soát con mới.** File cấu hình (XML) của phiên bản pfSense cũ không tương thích với phiên bản pfSense mới.
 - **Rủi ro 2: Lỗi LACP không up.** Mặc dù đã chuẩn bị offline, nhưng khi chuyển đổi, Switch và pfSense không thỏa thuận được LACP, làm kết nối LAN chập chờn hoặc rớt gói tin.
-- **Rủi ro 3: Xung đột ARP/MAC Cache.** Máy tính trong mạng hoặc Core Switch vẫn lưu địa chỉ MAC của cổng LAN pfSense cũ, dẫn tới traffic không đẩy sang pfSense mới.
-  - *Cách xử lý:* Gửi gói Gratuitous ARP từ pfSense (ping broadcast) hoặc chạy lệnh xóa bảng ARP trên Core Switch (`clear ip arp`).
-
 ---
 
 ## 4. Phương án Rollback (Nếu lỗi không khắc phục được)
