@@ -1,13 +1,17 @@
-# Kế hoạch Thay thế Firewall pfSense cũ bằng Firewall pfSense mới (Có LACP)
+# Kế hoạch Thay thế Firewall pfSense cũ bằng Firewall pfSense mới downstream(Có LACP) 
 
 Mục tiêu: Thay thế hoàn toàn thiết bị pfSense cũ (đang dùng 1 port LAN) sang thiết bị pfSense mới (sử dụng LACP bonding 2 port) với thời gian downtime (gián đoạn mạng) thấp nhất.
+
+<img src="images/topology.png" width="800"> 
+
 
 ## Mục lục
 - [1. Phương án thực hiện](#1-phương-án-thực-hiện)
 - [2. Các bước thực hiện cụ thể](#2-các-bước-thực-hiện-cụ-thể)
-  - [Giai đoạn 1: Chuẩn bị (Không gây downtime)](#giai-đoạn-1-chuẩn-bị---không-gây-downtime)
-  - [Giai đoạn 2: Chuyển đổi (Cut-over)](#giai-đoạn-2-chuyển-đổi-cut-over---downtime-dự-kiến-1-5-phút)
-  - [Giai đoạn 3: Kiểm tra (Post-migration)](#giai-đoạn-3-kiểm-tra-post-migration)
+  - [Giai đoạn 1: Chuẩn bị](#giai-đoạn-1-chuẩn-bị---không-gây-downtime)
+  - [Giai đoạn 2: Cấu hình LAGG và Trunk trên Core Switch](#giai-đoạn-2-cấu-hình-lagg-và-trunk-trên-core-switch)
+  - [Giai đoạn 3: Cấu hình Lagg trên pfsense](#giai-đoạn-3-cấu-hình-lagg-trên-pfsense)
+  - [Giai đoạn 4: Chuyển đổi cáp vật lý và Kiểm tra](#giai-đoạn-4-chuyển-đổi-cáp-vật-lý-và-kiểm-tra)
 - [3. Rủi ro lỗi ở các bước thực hiện](#3-rủi-ro-lỗi-ở-các-bước-thực-hiện)
 - [4. Phương án Rollback (Nếu lỗi không khắc phục được)](#4-phương-án-rollback-nếu-lỗi-không-khắc-phục-được)
 
@@ -39,106 +43,81 @@ Mục tiêu: Thay thế hoàn toàn thiết bị pfSense cũ (đang dùng 1 port
 
    - *Lưu ý:* Trong quá trình reboot, pfSense có thể sẽ yêu cầu nhập password mới để hoàn thành.
    
-   - **Thiết lập LAGG trên pfsense mới và gán lại các VLAN (10, 20) vào interface `lagg0` thay vì port đơn như trước:**
-     - Vào `Interfaces > LAGGs`, bấm **Add** > thêm `e3, e4` (giả sử `e3, e4` là 2 cổng mới thêm vào trên pfSense để dành riêng cho việc cấu hình LAGG).
-     
-     <img src="images/3.png" width="600">    
+### Giai đoạn 2: Cấu hình LAGG và Trunk trên Core Switch
 
-     - Vào `Interfaces > VLANs`, tạo sub-interfaces VLAN trên nền của LAGG `e3, e4` vừa tạo.
-     
-     <img src="images/4.png" width="600">
+1. Tạo một cổng portchannel mới trên CoreSw (g1/0/4, g1/0/5) và cấu hình trunk trên portchannel đó 
 
-     - Vào `Interfaces > Interface Assignments`, add thêm interface `lagg0` và `Enable` nó lên.
-     
-     <img src="images/16.png" width="600">
-     <br>
-     <img src="images/17.png" width="600">
+```cisco
+CoreSw(config)#interface range g1/0/4,g1/0/5
+CoreSw(config-if-range)#no shut
+CoreSw(config-if-range)#switchport mode trunk
+CoreSw(config-if-range)#switchport trunk allowed vlan 1,5,6,9,20,21,22,24,26,28,30,34,40,50,90,91,92
+CoreSw(config-if-range)#channel-group 4 mode active
+CoreSw(config-if-range)#interface po4
+CoreSw(config-if)#switchport mode trunk
+CoreSw(config-if)#switchport trunk allowed vlan 1,5,6,9,20,21,22,24,26,28,30,34,40,50,90,91,92
+```
 
-     - Vẫn ở `Interfaces > Interface Assignments`, thay thế các sub-interface VLAN cũ bằng sub-interface VLAN mới vừa tạo trên nền LAGG.
-     - Việc thay thế này sẽ giúp giữ nguyên mọi cấu hình ban đầu trên các interface cũ như IP, VLAN, DHCP, Rules..., chỉ thay đổi interface vật lý.
-     
-     <img src="images/5.png" width="600">
-     <br>
-     <img src="images/6.png" width="600"> 
+2. **Tắt cổng Trunk đang dùng trên Core Switch (downtime):**
+   ```cisco
+   CoreSw(config)# interface g1/0/1
+   CoreSw(config-if)# shutdown
+   ```
 
-     - Xóa interface cũ (`e0`) và các sub-interface đi kèm của nó.
-     
-     <img src="images/18.png" width="600">
-     <br>
-     <img src="images/19.png" width="600">
+### Giai đoạn 3: Cấu hình Lagg trên pfsense
 
-     - Đổi tên các interface vừa thay thế:
+- Truy cập Web GUI pfSense qua IP WAN (172.16.11.2), không xoá interface LAN (bge1) hiện tại đang dùng, mà gộp luôn interface đó vào cùng với cổng mới để tạo LAGG (bge1 là cổng Trunk đang dùng, bge3 là cổng mới)
 
-     <img src="images/rename-1.png" width="600">
-     <br>
-     <img src="images/rename-2.png" width="600">
-     <br>
-     <img src="images/rename-3.png" width="600">
+<img src="images/pic1.png" width="600">
 
-3. **Chuẩn bị Core Switch:**
-   - Trên 2 port trống trên Core Switch (VD: G0/3, G1/0), cấu hình Port-Channel (LACP mode active), sau đó cấu hình Trunk allow các VLAN tương ứng trên port-channel này.
+<img src="images/image.png" width="600"> 
 
-   - **Cấu hình LACP và Trunk trên Core Switch:**
-     *(Theo chuẩn Cisco, bạn chỉ cần gộp port vật lý vào LACP, sau đó cấu hình Trunk trên giao diện Port-channel ảo, cấu hình này sẽ tự động ép xuống 2 port vật lý để tránh lỗi bất đồng bộ).*
-     ```cisco
-     CoreSw(config)# int range g0/3, g1/0
-     CoreSw(config-if-range)# channel-group 1 mode active
-     CoreSw(config-if-range)# exit
 
-     CoreSw(config)# int port-channel 1
-     CoreSw(config-if)# sw trunk encapsulation dot1q
-     CoreSw(config-if)# sw mode trunk
-     CoreSw(config-if)# sw trunk allowed vlan 10,20
-     CoreSw(config-if)# end
-     CoreSw# wr
-     ```
+- Sau đó vào Interfaces/VLANs, thay interface của các vlan hiện tại bằng laggs vừa tạo. Điều này giúp tránh việc phải tạo thêm interface vlan mới.
 
-### Giai đoạn 2: Chuyển đổi (Cut-over) - *Downtime dự kiến 1-5 phút*
+<img src="images/image2.png" width="600"> 
+ 
+<img src="images/image3.png" width="600"> 
+ 
+<img src="images/image4.png" width="600"> 
 
-1. **Tắt Firewall cũ (Bắt đầu tính Downtime):**
-   - Trên Core Switch: Thực hiện lệnh `shutdown` port LAN nối với con pfSense cũ. (giả sử cổng g0/0 là cổng LAN cũ)
+### Giai đoạn 4: Chuyển đổi cáp vật lý và Kiểm tra
 
-      ```cisco
-      CoreSw(config)# int g0/0
-      CoreSw(config-if)# shutdown
-      CoreSw(config-if)# end
-      CoreSw# wr
-      ```
+1. **Chuyển cáp hoàn thiện:**
+   - Rút bỏ cáp cũ đang cắm ở cổng `g1/0/1` của Switch.
+   - Sử dụng cáp mạng để nối: 1 sợi từ cổng `bge1 (4)` của pfSense sang `g1/0/4` của Switch, và 1 sợi nối từ cổng `bge3 (2)` sang `g1/0/5` của Switch (lúc này LACP sẽ hoạt động đồng bộ trên cả 2 đường).
 
-   - Rút cáp mạng cổng WAN của con pfSense cũ.
+2. **Kiểm tra trạng thái (Post-migration):**
+   - Trên Core Switch, gõ lệnh `show etherchannel summary` để đảm bảo cả 2 cổng `g1/0/4` và `g1/0/5` đều có trạng thái `(P)`.
+   - Ping test từ mạng LAN ra internet (VD: `ping 8.8.8.8`) để xác nhận hệ thống hoạt động ổn định.
 
-2. **Bật Firewall mới:**
-   - Cắm cáp WAN vào cổng WAN của con pfSense mới.
-   - Nối cáp mạng từ 2 cổng mới trên pfSense vào 2 cổng vừa cấu hình LACP trên Core Switch.
-   - Đợi cho Switch và pfSense thỏa thuận giao thức LACP thành công.
-
-### Giai đoạn 3: Kiểm tra (Post-migration)
-
-1. Trên Core Switch chạy lệnh `show etherchannel summary` để kiểm tra LACP đã "UP" đều cả 2 cổng hay chưa.
-2. Vào `Status > Interfaces` hoặc `Diagnostics > LAGG` trên pfSense mới để xác nhận lagg0 đang ở trạng thái ACTIVE trên cả 2 cổng.
-3. Ping kiểm tra từ máy tính thuộc mạng VLAN ra Internet (IP WAN) và DNS (8.8.8.8).
-4. Kiểm tra các dịch vụ Publish ra ngoài (Port Forwarding, VPN) xem có hoạt động bình thường không.
-
----
-
-## 3. Rủi ro lỗi ở các bước thực hiện
-
-> [!WARNING]
-> Những rủi ro sau có thể làm gián đoạn chuyển đổi.
-
-- **Rủi ro 1: Lỗi Restore cấu hình dẫn đến mất kiểm soát con mới.** File cấu hình (XML) của phiên bản pfSense cũ không tương thích với phiên bản pfSense mới.
-- **Rủi ro 2: Lỗi LACP không up.** Mặc dù đã chuẩn bị offline, nhưng khi chuyển đổi, Switch và pfSense không thỏa thuận được LACP, làm kết nối LAN chập chờn hoặc rớt gói tin.
+3. **Nếu cổng Po4 lên thành công thì đưa interface trunk cũ về trạng thái default**
+```
+   CoreSw(config)# default interface GigabitEthernet 1/0/1
+```
 ---
 
 ## 4. Phương án Rollback (Nếu lỗi không khắc phục được)
 
 > [!CAUTION]
-> Kích hoạt Rollback nếu vượt quá 10 phút không có Internet và không thể truy vết lỗi nhanh.
+> Kích hoạt Rollback nếu vượt quá 5-10 phút không có Internet và không thể khắc phục nhanh.
 
-1. **Trên Core Switch:** 
-   - `shutdown` ngay lập tức 2 port LACP nối với firewall mới (G0/3, G1/0).
-   - `no shutdown` mở lại port kết nối với firewall cũ.
-2. **Kéo lại cáp WAN:**
-   - Rút cáp WAN khỏi Firewall mới, cắm trả lại vào cổng WAN của Firewall cũ.
+1. **Khôi phục cấu hình pfSense:**
+   - Truy cập giao diện web pfSense (qua IP cổng WAN 172.16.11.2).
+   - Vào `Diagnostics > Backup & Restore`, tải lên file XML đã backup ở Giai đoạn 1 và chọn `Restore Configuration`.
+   - (Việc restore backup sẽ tự động đè lại trạng thái mạng ban đầu, bạn không cần phải tốn công xóa LAGG hay chỉnh sửa interface thủ công).
+
+2. **Khôi phục Core Switch và Cáp mạng:**
+
+    - Rút bỏ các sợi cáp LACP mới (`g1/0/4`, `g1/0/5`, `bge3`).
+
+   - Cắm trả lại dây trunk vào cổng `g1/0/1` của Switch (đầu kia nối với `e1` của pfSense) như cũ.
+
+   - Bật lại cổng LAN cũ trên Switch:
+     ```cisco
+     CoreSw(config)# interface g1/0/1
+     CoreSw(config-if)# no shutdown
+     ```
+
 3. **Kiểm tra dịch vụ:**
-   - Kiểm tra mạng xem đã trở lại bình thường chưa. (Quá trình rollback này thường chỉ mất 1-2 phút do firewall cũ chưa hề bị thay đổi cấu hình hay xóa bỏ, vẫn đang ở trạng thái sẵn sàng).
+   - Đợi pfSense khởi động xong, ping test từ mạng LAN ra `8.8.8.8` để đảm bảo mọi thứ đã trở lại bình thường.
