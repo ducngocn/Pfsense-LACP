@@ -45,10 +45,10 @@ Mục tiêu: Thay thế hoàn toàn thiết bị pfSense cũ (đang dùng 1 port
    
 ### Giai đoạn 2: Cấu hình LAGG và Trunk trên Core Switch
 
-1. Tạo một cổng portchannel mới trên CoreSw (g1/0/4, g1/0/5) và cấu hình trunk trên portchannel đó 
+1. Tạo một cổng portchannel mới trên CoreSw (g1/0/15, g1/0/16) và cấu hình trunk trên portchannel đó 
 
 ```cisco
-CoreSw(config)#interface range g1/0/4,g1/0/5
+CoreSw(config)#interface range g1/0/15,g1/0/16
 CoreSw(config-if-range)#no shut
 CoreSw(config-if-range)#switchport mode trunk
 CoreSw(config-if-range)#switchport trunk allowed vlan 1,5,6,9,20,21,22,24,26,28,30,34,40,50,90,91,92
@@ -85,10 +85,10 @@ CoreSw(config-if)#switchport trunk allowed vlan 1,5,6,9,20,21,22,24,26,28,30,34,
 
 1. **Chuyển cáp hoàn thiện:**
    - Rút bỏ cáp cũ đang cắm ở cổng `g1/0/1` của Switch.
-   - Sử dụng cáp mạng để nối: 1 sợi từ cổng `bge1 (4)` của pfSense sang `g1/0/4` của Switch, và 1 sợi nối từ cổng `bge3 (2)` sang `g1/0/5` của Switch (lúc này LACP sẽ hoạt động đồng bộ trên cả 2 đường).
+   - Sử dụng cáp mạng để nối: 1 sợi từ cổng `bge1 (4)` của pfSense sang `g1/0/15` của Switch, và 1 sợi nối từ cổng `bge3 (2)` sang `g1/0/16` của Switch (lúc này LACP sẽ hoạt động đồng bộ trên cả 2 đường).
 
 2. **Kiểm tra trạng thái (Post-migration):**
-   - Trên Core Switch, gõ lệnh `show etherchannel summary` để đảm bảo cả 2 cổng `g1/0/4` và `g1/0/5` đều có trạng thái `(P)`.
+   - Trên Core Switch, gõ lệnh `show etherchannel summary` để đảm bảo cả 2 cổng `g1/0/15` và `g1/0/16` đều có trạng thái `(P)`.
    - Ping test từ mạng LAN ra internet (VD: `ping 8.8.8.8`) để xác nhận hệ thống hoạt động ổn định.
 
 3. **Nếu cổng Po4 lên thành công thì đưa interface trunk cũ về trạng thái default**
@@ -109,7 +109,7 @@ CoreSw(config-if)#switchport trunk allowed vlan 1,5,6,9,20,21,22,24,26,28,30,34,
 
 2. **Khôi phục Core Switch và Cáp mạng:**
 
-    - Rút bỏ các sợi cáp LACP mới (`g1/0/4`, `g1/0/5`, `bge3`).
+    - Rút bỏ các sợi cáp LACP mới (`g1/0/15`, `g1/0/16`, `bge3`).
 
    - Cắm trả lại dây trunk vào cổng `g1/0/1` của Switch (đầu kia nối với `e1` của pfSense) như cũ.
 
