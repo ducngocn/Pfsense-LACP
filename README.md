@@ -103,7 +103,7 @@ CoreSw(config-if)#switchport trunk allowed vlan 1,5,6,9,20,21,22,24,26,28,30,34,
 > Kích hoạt Rollback nếu vượt quá 5-10 phút không có Internet và không thể khắc phục nhanh.
 
 1. **Khôi phục cấu hình pfSense:**
-   - Truy cập giao diện web pfSense (qua IP cổng WAN 172.16.11.2).
+   - Truy cập giao diện web pfSense (qua IP cổng WAN (cổng số 1 - bge2) 172.16.11.2).
    - Vào `Diagnostics > Backup & Restore`, tải lên file XML đã backup ở Giai đoạn 1 và chọn `Restore Configuration`.
    - (Việc restore backup sẽ tự động đè lại trạng thái mạng ban đầu, bạn không cần phải tốn công xóa LAGG hay chỉnh sửa interface thủ công).
 
